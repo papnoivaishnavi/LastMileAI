@@ -66,6 +66,7 @@ interface MapDisplayProps {
   path?: Coordinates[];
   start?: Coordinates;
   end?: Coordinates;
+  expectedOtp?: string;
   onMapClick: (latlng: L.LatLng) => void;
   onDeliveryComplete: (success: boolean, lockerName?: string) => void;
 }
@@ -137,102 +138,22 @@ const MainPathAnimation: React.FC<{ path: Coordinates[]; onComplete: () => void;
   );
 };
 
-interface Trip {
-  id: number;
-  path: [number, number][];
-  progress: number;
-  startTime: number;
-}
 
-const DriverAnimation: React.FC<{ psLocations: any[] }> = ({ psLocations }) => {
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const requestRef = useRef<number>();
-
-  useEffect(() => {
-    if (psLocations.length < 2) return;
-
-    const startTrip = async () => {
-      const start = psLocations[Math.floor(Math.random() * psLocations.length)];
-      let end = psLocations[Math.floor(Math.random() * psLocations.length)];
-      while (end.id === start.id) {
-        end = psLocations[Math.floor(Math.random() * psLocations.length)];
-      }
-
-      try {
-        const response = await fetch(
-          `https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=full&geometries=geojson`
-        );
-        const data = await response.json();
-        if (data.routes && data.routes.length > 0) {
-          const path = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
-          const newTrip: Trip = {
-            id: Date.now() + Math.random(),
-            path,
-            progress: 0,
-            startTime: Date.now()
-          };
-          setTrips(prev => [...prev.slice(-4), newTrip]);
-        }
-      } catch (e) {
-        console.error('Failed to fetch trip path:', e);
-      }
-    };
-
-    const interval = setInterval(startTrip, 8000);
-    startTrip();
-
-    return () => clearInterval(interval);
-  }, [psLocations]);
-
-  const animate = () => {
-    setTrips(prevTrips => {
-      const now = Date.now();
-      return prevTrips
-        .map(trip => {
-          const elapsed = now - trip.startTime;
-          const duration = trip.path.length * 200;
-          return {
-            ...trip,
-            progress: Math.min(elapsed / duration, 1)
-          };
-        })
-        .filter(trip => trip.progress < 1);
-    });
-    requestRef.current = requestAnimationFrame(animate);
-  };
-
-  useEffect(() => {
-    requestRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    };
-  }, []);
-
-  return (
-    <>
-      {trips.map(trip => {
-        const pointIndex = Math.floor(trip.progress * (trip.path.length - 1));
-        const point = trip.path[pointIndex];
-        if (!point) return null;
-        return (
-          <Marker key={trip.id} position={point as [number, number]} icon={PARCEL_ICON} opacity={0.8} />
-        );
-      })}
-    </>
-  );
-};
-
-export const MapDisplay: React.FC<MapDisplayProps> = ({ path, start, end, onMapClick, onDeliveryComplete }) => {
+export const MapDisplay: React.FC<MapDisplayProps> = ({ path, start, end, expectedOtp, onMapClick, onDeliveryComplete }) => {
   const [psLocations, setPsLocations] = useState<any[]>([]);
   const [showPopup, setShowPopup] = useState(false);
   const [activePath, setActivePath] = useState<Coordinates[] | undefined>(path);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [pendingLocker, setPendingLocker] = useState<string | undefined>();
+  const [otpInput, setOtpInput] = useState('');
+  const [otpError, setOtpError] = useState(false);
 
   useEffect(() => {
     setActivePath(path);
     setIsRedirecting(false);
     setShowPopup(false);
+    setOtpInput('');
+    setOtpError(false);
   }, [path]);
 
   useEffect(() => {
@@ -257,10 +178,16 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({ path, start, end, onMapC
     fetchPS();
   }, []);
 
-  const handleYes = () => {
-    onDeliveryComplete(true);
-    setShowPopup(false);
-    setActivePath(undefined);
+  const handleVerify = () => {
+    if (otpInput === expectedOtp) {
+      onDeliveryComplete(true);
+      setShowPopup(false);
+      setActivePath(undefined);
+      setOtpInput('');
+      setOtpError(false);
+    } else {
+      setOtpError(true);
+    }
   };
 
   const handleNo = async () => {
@@ -350,8 +277,6 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({ path, start, end, onMapC
           </Marker>
         ))}
 
-        <DriverAnimation psLocations={psLocations} />
-
         {activePath && activePath.length > 0 && (
           <MainPathAnimation 
             path={activePath} 
@@ -377,10 +302,50 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({ path, start, end, onMapC
       {showPopup && (
         <div className="delivery-popup-overlay">
           <div className="delivery-popup">
-            <h3>Delivery Successful?</h3>
+            <h3>Verify Delivery</h3>
+            <p style={{ fontSize: '0.875rem', color: '#666', marginBottom: '1.5rem' }}>
+              Enter the 4-digit OTP sent to the customer/management.
+            </p>
+            
+            <div style={{ marginBottom: '1.5rem' }}>
+              <input 
+                type="text" 
+                maxLength={4} 
+                value={otpInput}
+                onChange={(e) => {
+                  setOtpInput(e.target.value.replace(/[^0-9]/g, ''));
+                  setOtpError(false);
+                }}
+                placeholder="0 0 0 0"
+                style={{ 
+                  fontSize: '2rem', 
+                  width: '160px', 
+                  textAlign: 'center', 
+                  letterSpacing: '0.5rem',
+                  padding: '0.5rem',
+                  borderRadius: '0.5rem',
+                  border: `2px solid ${otpError ? '#ef4444' : '#d1d5db'}`,
+                  outline: 'none',
+                  color: '#1f2937'
+                }}
+              />
+              {otpError && (
+                <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+                  Invalid OTP. Please check with management.
+                </p>
+              )}
+            </div>
+
             <div className="popup-actions">
-              <button className="btn-yes" onClick={handleYes}>Yes</button>
-              <button className="btn-no" onClick={handleNo}>No</button>
+              <button 
+                className="btn-yes" 
+                onClick={handleVerify}
+                disabled={otpInput.length < 4}
+                style={{ opacity: otpInput.length < 4 ? 0.5 : 1 }}
+              >
+                Verify & Complete
+              </button>
+              <button className="btn-no" onClick={handleNo}>Redirect to Locker</button>
             </div>
           </div>
         </div>
@@ -401,39 +366,47 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({ path, start, end, onMapC
         }
         .delivery-popup {
           background: white;
-          padding: 2rem;
-          border-radius: 1rem;
-          box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+          padding: 2.5rem;
+          border-radius: 1.5rem;
+          box-shadow: 0 20px 50px rgba(0,0,0,0.3);
           text-align: center;
           color: #1f2937;
+          width: 350px;
         }
         .delivery-popup h3 {
           margin-top: 0;
-          margin-bottom: 1.5rem;
+          margin-bottom: 0.5rem;
+          font-size: 1.5rem;
         }
         .popup-actions {
           display: flex;
-          gap: 1rem;
+          flex-direction: column;
+          gap: 0.75rem;
           justify-content: center;
         }
         .popup-actions button {
-          padding: 0.75rem 2rem;
-          border-radius: 0.5rem;
+          padding: 1rem 2rem;
+          border-radius: 0.75rem;
           border: none;
           font-weight: bold;
           cursor: pointer;
-          transition: opacity 0.2s;
+          transition: all 0.2s;
+          width: 100%;
         }
         .btn-yes {
-          background-color: #10b981;
+          background-color: #3b82f6;
           color: white;
         }
         .btn-no {
-          background-color: #ef4444;
-          color: white;
+          background-color: #f3f4f6;
+          color: #4b5563;
         }
-        .popup-actions button:hover {
-          opacity: 0.9;
+        .popup-actions button:hover:not(:disabled) {
+          transform: translateY(-2px);
+          filter: brightness(1.1);
+        }
+        .btn-yes:active {
+          transform: translateY(0);
         }
       `}</style>
     </div>

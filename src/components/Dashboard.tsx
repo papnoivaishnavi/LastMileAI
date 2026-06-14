@@ -11,12 +11,12 @@ import '../styles/dashboard.css';
 const optimizer = new ApiRouteOptimizer();
 
 const INITIAL_ORDERS: Order[] = [
-  { id: 'ORD-7721', status: 'In Transit', destination: 'Connaught Place, Delhi', time: '12 mins', driver: 'Rahul S.' },
-  { id: 'ORD-8842', status: 'In Transit', destination: 'Hauz Khas Village', time: '24 mins', driver: 'Priya M.' },
-  { id: 'ORD-3310', status: 'Delayed', destination: 'Rohini Sector 11', time: '45 mins', driver: 'Amit K.' },
-  { id: 'ORD-9956', status: 'In Transit', destination: 'Gurgaon Sector 44', time: '18 mins', driver: 'Sonia G.' },
+  { id: 'ORD-7721', status: 'In Transit', destination: 'Connaught Place, Delhi', time: '12 mins', driver: 'Rahul S.', otp: '1234' },
+  { id: 'ORD-8842', status: 'In Transit', destination: 'Hauz Khas Village', time: '24 mins', driver: 'Priya M.', otp: '5678' },
+  { id: 'ORD-3310', status: 'Delayed', destination: 'Rohini Sector 11', time: '45 mins', driver: 'Amit K.', otp: '9012' },
+  { id: 'ORD-9956', status: 'In Transit', destination: 'Gurgaon Sector 44', time: '18 mins', driver: 'Sonia G.', otp: '3456' },
   { id: 'ORD-1123', status: 'Completed', destination: 'Noida Phase 2', time: '0 mins', driver: 'Vikram R.' },
-  { id: 'ORD-4457', status: 'Pending', destination: 'Dwarka Sector 10', time: 'Pending', driver: 'Unassigned' },
+  { id: 'ORD-4457', status: 'Pending', destination: 'Dwarka Sector 10', time: 'Pending', driver: 'Unassigned', otp: '7890' },
 ];
 
 export const Dashboard: React.FC = () => {
@@ -52,12 +52,14 @@ export const Dashboard: React.FC = () => {
       const result = await optimizer.calculateRoute(start, end, factors);
       setRouteResult(result);
       
+      const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
       const newOrder: Order = {
         id: `ORD-${Math.floor(Math.random() * 9000) + 1000}`,
         status: 'In Transit',
         destination: `${end.lat.toFixed(4)}, ${end.lng.toFixed(4)}`,
         time: `${result.estimatedTime} mins`,
-        driver: 'You (AI Pilot)'
+        driver: 'You (AI Pilot)',
+        otp: generatedOtp
       };
       setOrders(prev => [newOrder, ...prev]);
       setCurrentOrderId(newOrder.id);
@@ -90,6 +92,7 @@ export const Dashboard: React.FC = () => {
 
   const startLabel = start ? `${start.lat.toFixed(4)}, ${start.lng.toFixed(4)}` : '';
   const endLabel = end ? `${end.lat.toFixed(4)}, ${end.lng.toFixed(4)}` : '';
+  const currentOrder = orders.find(o => o.id === currentOrderId);
 
   return (
     <div className="dashboard-container">
@@ -116,6 +119,7 @@ export const Dashboard: React.FC = () => {
               path={routeResult?.path}
               start={start || undefined}
               end={end || undefined}
+              expectedOtp={currentOrder?.otp}
               onMapClick={handleMapClick}
               onDeliveryComplete={handleDeliveryComplete}
             />

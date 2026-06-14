@@ -6,6 +6,7 @@ export interface Order {
   destination: string;
   time: string;
   driver: string;
+  otp?: string;
 }
 
 interface ManagementViewProps {
@@ -42,6 +43,19 @@ export const ManagementView: React.FC<ManagementViewProps> = ({ orders }) => {
               <div><strong>Destination:</strong> {order.destination}</div>
               <div><strong>Est. Time:</strong> {order.time}</div>
               <div><strong>Driver:</strong> {order.driver}</div>
+              {order.otp && order.status !== 'Completed' && (
+                <div style={{ 
+                  marginTop: '0.5rem', 
+                  padding: '0.5rem', 
+                  backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+                  borderRadius: '0.375rem',
+                  border: '1px dashed var(--primary-color)',
+                  textAlign: 'center'
+                }}>
+                  <strong style={{ fontSize: '0.75rem', textTransform: 'uppercase', display: 'block', color: 'var(--text-dim)' }}>Delivery OTP</strong>
+                  <span style={{ fontSize: '1.25rem', letterSpacing: '0.2rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>{order.otp}</span>
+                </div>
+              )}
             </div>
           </div>
         ))}
