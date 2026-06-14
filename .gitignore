@@ -1,12 +1,15 @@
-# Ignore everything
-/*
+# Dependencies
+node_modules/
+env/
 
-# Except for the build directory
-!/dist/
+# Build output
+dist/
 
-# Except for this .gitignore file
-!/.gitignore
+# Environment variables (Sensitive)
+.env
+.env.*
 
-# Optional: Keep README if you want it visible
-!/README.md
-!/LICENSE
+# IDE/System files
+.DS_Store
+.vscode/
+.idea/
