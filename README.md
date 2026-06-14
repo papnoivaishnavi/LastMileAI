@@ -121,20 +121,6 @@ LastMileAI/
 
 └── README.md
 
----
-
-## Installation
-
-Clone the repository:
-
-git clone https://github.com/YOUR_USERNAME/LastMileAI.git
-
-Install dependencies:
-
-pip install -r requirements.txt
-
----
-
 ## Running the Project
 
 Train the LSTM model:
